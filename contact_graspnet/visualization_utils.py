@@ -103,6 +103,8 @@ def visualize_grasps(full_pc, pred_grasps_cam, scores, plot_opencv_cam=False, pc
             else:
                 colors3 = [cm2(0.5*score)[:3] for score in scores[k]]
                 draw_grasps(pred_grasps_cam[k], np.eye(4), colors=colors3, gripper_openings=gripper_openings_k)    
+                draw_grasps([pred_grasps_cam[k][np.argmax(scores[k])]], np.eye(4), color=colors2[k], 
+                            gripper_openings=[gripper_openings_k[np.argmax(scores[k])]], tube_radius=0.0025)  
     mlab.show()
 
 def draw_pc_with_colors(pc, pc_colors=None, single_color=(0.3,0.3,0.3), mode='2dsquare', scale_factor=0.0018):
@@ -184,14 +186,14 @@ def draw_grasps(grasps, cam_pose, gripper_openings, color=(0,1.,0), colors=None,
         connections.append(np.vstack([np.arange(index,   index + N - 1.5),
                                       np.arange(index + 1, index + N - .5)]).T)
         index += N
-        # mlab.plot3d(pts[:, 0], pts[:, 1], pts[:, 2], color=color, tube_radius=tube_radius, opacity=1.0)
+        mlab.plot3d(pts[:, 0], pts[:, 1], pts[:, 2], color=color, tube_radius=tube_radius, opacity=1.0)
     
-    # speeds up plot3d because only one vtk object
-    all_pts = np.vstack(all_pts)
-    connections = np.vstack(connections)
-    src = mlab.pipeline.scalar_scatter(all_pts[:,0], all_pts[:,1], all_pts[:,2])
-    src.mlab_source.dataset.lines = connections
-    src.update()
-    lines =mlab.pipeline.tube(src, tube_radius=tube_radius, tube_sides=12)
-    mlab.pipeline.surface(lines, color=color, opacity=1.0)
+    # # speeds up plot3d because only one vtk object
+    # all_pts = np.vstack(all_pts)
+    # connections = np.vstack(connections)
+    # src = mlab.pipeline.scalar_scatter(all_pts[:,0], all_pts[:,1], all_pts[:,2])
+    # src.mlab_source.dataset.lines = connections
+    # src.update()
+    # lines =mlab.pipeline.tube(src, tube_radius=tube_radius, tube_sides=12)
+    # mlab.pipeline.surface(lines, color=color, opacity=1.0)
     

@@ -5,7 +5,6 @@ import numpy as np
 import time
 import glob
 import cv2
-
 import tensorflow.compat.v1 as tf
 tf.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -83,6 +82,27 @@ def inference(global_config, checkpoint_dir, input_paths, K=None, local_regions=
     if not glob.glob(input_paths):
         print('No files found: ', input_paths)
         
+#Helper function to undo the image rotation that was applied for input to contact graspnet, and to comply with ROS coordinate frame standards
+def transform_grasp(grasp):
+    from math import radians, sin, cos
+    theta = radians(-90)
+    undo_rot_matrix = np.asarray([[cos(theta), -sin(theta), 0, 0], [sin(theta), cos(theta), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    theta = radians(90)
+    ros_rot_matrix = np.asarray([[cos(theta), -sin(theta), 0, 0], [sin(theta), cos(theta), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    # undo_rot_matrix = euler_matrix(0, 0, radians(-CAMERA_ROT))
+    final_grasp = undo_rot_matrix@grasp@ros_rot_matrix
+    # trans = translation_from_matrix(final_grasp)
+    # quat = quaternion_from_matrix(final_grasp)
+    # euler = list(euler_from_matrix(grasp))
+    # #Rotate orientation to match ROS Coordinate Fram Standards (z up, x forward, y left)
+    # # euler[0] = euler[0] + radians(-90)
+    # # euler[1] = euler[1] + radians(-90)
+    # euler[2] = euler[2] + radians(-90)
+    # quat = quaternion_from_euler(euler[0], euler[1], euler[2])
+    # trans = translation_from_matrix(grasp)
+    # quat = quaternion_from_matrix(grasp)
+    return final_grasp  
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -97,7 +117,19 @@ if __name__ == "__main__":
     parser.add_argument('--forward_passes', type=int, default=1,  help='Run multiple parallel forward passes to mesh_utils more potential contact points.')
     parser.add_argument('--segmap_id', type=int, default=0,  help='Only return grasps of the given object id')
     parser.add_argument('--arg_configs', nargs="*", type=str, default=[], help='overwrite config parameters')
+    parser.add_argument('--visualize', action='store_true', default=False, help='only visualize grasps at /tmp/contact_graspnet_pc.npy')
+    parser.add_argument('--visualize2', action='store_true', default=False, help='only visualize grasps at /tmp/contact_graspnet_pc.npy')
     FLAGS = parser.parse_args()
+
+    if FLAGS.visualize:
+        (pc_full, pred_grasps_cam, scores, pc_colors) = np.load("/tmp/contact_graspnet_pc.npy", allow_pickle=True)
+        visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
+        quit()
+    elif FLAGS.visualize2:
+        (pc_full, pc_colors) = np.load("/tmp/contact_graspnet_pc_orig.npy", allow_pickle=True)
+        (pred_grasps_cam, scores) = np.load("/tmp/contact_graspnet_grasps_rot.npy", allow_pickle=True)
+        pred_grasps_cam[1] = [transform_grasp(g) for g in pred_grasps_cam[1]]
+        visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
 
     global_config = config_utils.load_config(FLAGS.ckpt_dir, batch_size=FLAGS.forward_passes, arg_configs=FLAGS.arg_configs)
     
